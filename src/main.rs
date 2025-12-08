@@ -2,7 +2,7 @@ use std::{
     collections::BTreeMap,
     fmt::Display,
     fs::File,
-    io::{BufRead, BufReader},
+    io::{BufRead, BufReader, Seek, SeekFrom::Start},
     time::Instant,
 };
 
@@ -13,6 +13,8 @@ use std::{
 /// sorted in alphabetical order.
 
 const OBRC_PATH: &str = "testdata/weather_stations.csv";
+
+const HEADER_BYTES: u64 = 153;
 
 struct ChallengeValue {
     min: f64,
@@ -45,6 +47,10 @@ fn main() {
     let start = Instant::now();
     let mut reader = BufReader::new(File::open(OBRC_PATH).unwrap());
 
+    // There are 153 bytes of header, which was read via 'wc -c'
+    // that we know we can skip over at the beginning.
+    reader.seek(Start(HEADER_BYTES)).unwrap();
+
     let mut results: BTreeMap<String, ChallengeValue> = BTreeMap::new();
 
     let mut buf = String::new();
@@ -54,12 +60,6 @@ fn main() {
         }
 
         let entry = buf.split(";").collect::<Vec<_>>();
-        // Skip initial lines without a ';'
-        // TODO: skip known bytes at top with initial seek.
-        if entry.len() != 2 {
-            buf.clear();
-            continue;
-        }
 
         let station = entry[0].to_string();
         let measurement = entry[1]
