@@ -1,3 +1,8 @@
+/// One billion rows challenge.
+///
+/// Read the contents of [`OBRC_PATH`] and output
+/// the mean/min/max of the measurements per station,
+/// sorted in alphabetical order.
 use std::{
     collections::BTreeMap,
     fmt::Display,
@@ -5,12 +10,6 @@ use std::{
     io::{BufRead, BufReader, Seek, SeekFrom::Start},
     time::Instant,
 };
-
-/// One billion rows challenge.
-///
-/// Read the contents of [`OBRC_PATH`] and output
-/// the mean/min/max of the measurements per station,
-/// sorted in alphabetical order.
 
 const OBRC_PATH: &str = "testdata/weather_stations.csv";
 
