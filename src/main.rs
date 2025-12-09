@@ -7,7 +7,7 @@ use std::{
     collections::BTreeMap,
     fmt::Display,
     fs::File,
-    io::{BufRead, BufReader, Seek, SeekFrom::Start},
+    io::{BufRead, BufReader, Read, Seek, SeekFrom::Start},
     time::Instant,
 };
 
@@ -42,14 +42,13 @@ impl ChallengeValue {
     }
 }
 
-fn main() {
-    let start = Instant::now();
-    let mut reader = BufReader::new(File::open(OBRC_PATH).unwrap());
-
+fn read_stations<R: Read + Seek>(reader: &mut BufReader<R>) -> BTreeMap<String, ChallengeValue> {
     // There are 153 bytes of header, which was read via 'wc -c'
     // that we know we can skip over at the beginning.
     reader.seek(Start(HEADER_BYTES)).unwrap();
 
+    // Using a [`BTreeMap`] means that the station locations
+    // are automatically held in alphabetically sorted order.
     let mut results: BTreeMap<String, ChallengeValue> = BTreeMap::new();
 
     let mut buf = String::new();
@@ -80,7 +79,14 @@ fn main() {
 
         buf.clear();
     }
+    results
+}
 
+fn main() {
+    let mut reader = BufReader::new(File::open(OBRC_PATH).unwrap());
+    let start = Instant::now();
+
+    let results = read_stations(&mut reader);
     for (station, value) in results {
         println!("{station}={value}");
     }
