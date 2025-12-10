@@ -1,1 +1,4 @@
 /target
+
+# Ignore the local 1 billion file, as it is rather large.
+1b-measurements.txt
