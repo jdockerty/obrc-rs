@@ -1,11 +1,10 @@
 use std::{
     collections::BTreeMap,
     fmt::Display,
-    io::{BufRead, BufReader, Read, Seek, SeekFrom},
+    io::{BufRead, BufReader, Read, Seek},
 };
 
-const HEADER_BYTES: u64 = 153;
-
+#[derive(Debug, PartialEq)]
 pub struct ChallengeValue {
     min: f64,
     mean: f64,
@@ -36,10 +35,6 @@ impl ChallengeValue {
 pub fn read_stations<R: Read + Seek>(
     reader: &mut BufReader<R>,
 ) -> BTreeMap<String, ChallengeValue> {
-    // There are 153 bytes of header, which was read via 'wc -c'
-    // that we know we can skip over at the beginning.
-    reader.seek(SeekFrom::Start(HEADER_BYTES)).unwrap();
-
     // Using a [`BTreeMap`] means that the station locations
     // are automatically held in alphabetically sorted order.
     let mut results: BTreeMap<String, ChallengeValue> = BTreeMap::new();
@@ -73,4 +68,42 @@ pub fn read_stations<R: Read + Seek>(
         buf.clear();
     }
     results
+}
+
+#[cfg(test)]
+mod test {
+    use std::{fs::File, io::BufReader};
+
+    use crate::{obrc::ChallengeValue, read_stations};
+
+    const SMALL_INPUT_PATH: &str = "testdata/small.txt";
+
+    #[test]
+    fn correct_output() {
+        let f = File::open(SMALL_INPUT_PATH).unwrap();
+        let mut reader = BufReader::new(f);
+
+        let results = read_stations(&mut reader);
+        assert_eq!(results.len(), 2);
+        assert_eq!(
+            *results.get("a").unwrap(),
+            ChallengeValue {
+                min: 1.0,
+                mean: 1.0,
+                max: 1.0,
+                total: 1.0,
+                count: 1
+            }
+        );
+        assert_eq!(
+            *results.get("b").unwrap(),
+            ChallengeValue {
+                min: 1.0,
+                mean: 1.5,
+                max: 2.0,
+                total: 3.0,
+                count: 2
+            }
+        );
+    }
 }
