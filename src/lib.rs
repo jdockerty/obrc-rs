@@ -1,4 +1,5 @@
 pub mod obrc;
 
-pub const OBRC_PATH: &str = "testdata/weather_stations.csv";
+// Default path, specific to this repository.
+pub const DEFAULT_OBRC_PATH: &str = "1b-measurements.txt";
 pub use obrc::read_stations;
