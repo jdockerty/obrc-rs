@@ -32,20 +32,14 @@ impl ChallengeValue {
     }
 }
 
-pub fn read_stations<R: Read + Seek>(
-    reader: &mut BufReader<R>,
-) -> BTreeMap<String, ChallengeValue> {
-    // Using a [`BTreeMap`] means that the station locations
-    // are automatically held in alphabetically sorted order.
-    let mut results: BTreeMap<String, ChallengeValue> = BTreeMap::new();
+fn chunk_to_stations(buf: String) -> BTreeMap<String, ChallengeValue> {
+    let mut results = BTreeMap::new();
+    for entry in buf.split('\n') {
+        let entry = entry.split(";").collect::<Vec<_>>();
 
-    let mut buf = String::new();
-    while let Ok(v) = reader.read_line(&mut buf) {
-        if v == 0 {
+        if entry.len() == 1 {
             break;
         }
-
-        let entry = buf.split(";").collect::<Vec<_>>();
 
         let station = entry[0].to_string();
         let measurement = entry[1]
@@ -55,7 +49,7 @@ pub fn read_stations<R: Read + Seek>(
 
         results
             .entry(station)
-            .and_modify(|s| {
+            .and_modify(|s: &mut ChallengeValue| {
                 s.total += measurement;
                 s.count += 1;
 
@@ -64,9 +58,50 @@ pub fn read_stations<R: Read + Seek>(
                 s.mean = s.total / (s.count as f64);
             })
             .or_insert_with(|| ChallengeValue::new(measurement));
+    }
+    results
+}
 
+pub fn read_stations<R: Read + Seek>(
+    reader: &mut BufReader<R>,
+    size_hint: u64,
+) -> BTreeMap<String, ChallengeValue> {
+    let mut workers = Vec::new();
+
+    let max_parallelism = std::thread::available_parallelism().unwrap().get() as u64;
+    let max_chunk_size = size_hint / max_parallelism;
+    let mut entries = 0;
+
+    let mut buf = String::new();
+    while let Ok(v) = reader.read_line(&mut buf) {
+        if v == 0 {
+            break;
+        }
+
+        if entries == max_chunk_size {
+            let buf2 = buf.clone();
+            let handle = std::thread::spawn(move || chunk_to_stations(buf2));
+            workers.push(handle);
+            buf.clear();
+            entries = 0;
+        }
+        entries += 1;
+    }
+
+    // If we didn't reach the max chunk size, but the buf is still not cleared,
+    // then should dispatch a worker to handle it.
+    if !buf.is_empty() {
+        let buf2 = buf.clone();
+        let handle = std::thread::spawn(move || chunk_to_stations(buf2));
+        workers.push(handle);
         buf.clear();
     }
+
+    let mut results = BTreeMap::new();
+    for worker in workers {
+        results.extend(worker.join().unwrap());
+    }
+
     results
 }
 
@@ -83,7 +118,7 @@ mod test {
         let f = File::open(SMALL_INPUT_PATH).unwrap();
         let mut reader = BufReader::new(f);
 
-        let results = read_stations(&mut reader);
+        let results = read_stations(&mut reader, 3);
         assert_eq!(results.len(), 2);
         assert_eq!(
             *results.get("a").unwrap(),
